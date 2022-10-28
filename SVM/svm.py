@@ -3,15 +3,15 @@ from sklearn.model_selection import train_test_split
 from operator import itemgetter
 import matplotlib.pyplot as plt
 class SVM():
-	def __init__(self,c=0.1,iters=1000,learning_rate=0.01):
+	def __init__(self,lamda=0.0001,iters=1000,learning_rate=0.01):
 		self.features=None
 		self.targets=None
 		self.w=None
 		self.b=None
-		self.c=c
+		self.lamda=lamda
 		self.iters=iters
 		self.lr=learning_rate
-
+		
 	def fit(self,x,y):
 		self.features=x
 		self.targets=y
@@ -31,28 +31,31 @@ class SVM():
 				self.plot_idx2.append(t)
 		# Gradient descent concept
 		for i in range(self.iters):
-			margin=self.classes*(np.dot(self.features,self.w)+self.b)
-			j=self.cost_fn(margin)
-			self.costs.append(j)
-			#the second part in the cost fn will only appear if margin <1 
-			#where this means that the prediction is inside the margin so there will be a loss
-			#otherwise (margin>=1) the prediction is outside the margin and no loss
-			idx=np.where(margin<1)[0].tolist()
-			self.classes_new=list(itemgetter(*idx)(self.classes)) 
-			self.features_new=list(itemgetter(*idx)(self.features))
-			dw=self.w-self.c*np.sum(np.dot(self.classes_new,self.features_new))
-			db=-self.c*np.sum(self.classes_new)
-			self.w=self.w-self.lr*dw
-			self.b=self.b-self.lr*db
-
+			j=0
+			dw=np.zeros((x.shape[0],x.shape[1]))
+			db=np.zeros((x.shape[0],1))
+			for k in range (len(x)):
+				margin=self.classes[k]*(np.dot(self.features[k],self.w)+self.b)
+				j+=self.cost_fn(margin)
+				
+				if margin < 1:
+					dw[k]=2*self.lamda*self.w-self.classes[k]*self.features[k]
+					db[k]=-self.classes[k]
+				else:
+					dw[k]=2*self.lamda*self.w
+					db[k]=0
+			self.costs.append(j+self.lamda*0.5*np.dot(self.w,self.w))
+			self.w=self.w-self.lr*np.sum(dw,axis=0)
+			self.b=self.b-self.lr*np.sum(db,axis=0)
+			
 			#condition for termination(cost function becomes almost constant)
 			if(i>0):
 				if (abs(self.costs[i]-self.costs[i-1])<0.001):
 					break
-
+		
 	def cost_fn(self,margin):
-		#j=(||w^2||/2)+c∑max(0,1-yi(w.xi+b))
-		j=0.5*np.dot(self.w,self.w)+self.c*np.sum(np.maximum(0,1-margin))
+		#j=lamda∑(w^2/2)+∑max(0,1-yi(w.xi+b))
+		j=np.maximum(0,1-margin)
 		return j
 
 	def plot(self,x):
@@ -105,6 +108,7 @@ class SVM():
 #example
 file = open("Iris.csv")
 data_set = np.loadtxt(file, delimiter=",",skiprows=1,dtype=str)
+data_set=data_set[data_set[:,-1]!="Iris-versicolor"]
 x=data_set[:,1:3]
 x=x.astype(np.float)
 y=data_set[:,-1]
@@ -114,5 +118,7 @@ clf.fit(X_train,y_train)
 p=clf.predict(X_test)
 acc=clf.calc_acc(p,y_test)
 clf.plot(X_train)
+print(acc)
+
 
 
